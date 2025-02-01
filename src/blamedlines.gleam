@@ -114,7 +114,7 @@ fn max_length(margins: List(String)) -> Int {
 }
 
 fn vanilla_bob_margin_assembler(line: BlamedLine) -> String {
-  line.blame.filename <> ":" <> ins(line.blame.line_no)
+  line.blame.filename <> ":" <> ins(line.blame.line_no) <> ":" <> ins(line.indent)
 }
 
 fn jane_sue_margin_assember(line: BlamedLine) -> String {
