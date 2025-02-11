@@ -36,6 +36,17 @@ pub fn append_comment(blame: Blame, comment: String) -> Blame {
   Blame(blame.filename, blame.line_no, list.append(blame.comments, [comment]))
 }
 
+pub fn first_blame_filename(lines: List(BlamedLine)) -> Result(String, Nil) {
+  case lines {
+    [first, ..] -> Ok(first.blame.filename)
+    _ -> Error(Nil)
+  }
+}
+
+pub fn empty_blame() -> Blame {
+  Blame("", -1, [])
+}
+
 fn add_consecutive_blames_map_fold(
   state: LineNumberAndFilename,
   line: IndentAndContent,
