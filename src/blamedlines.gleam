@@ -118,8 +118,8 @@ pub fn blamed_lines_to_string(lines: List(BlamedLine)) -> String {
 }
 
 pub fn blamed_line_to_string_no_indent(line: BlamedLine) -> String {
-  let BlamedLine(_, indent, content) = line
-  " "<>content
+  let BlamedLine(_, _indent, content) = line
+  " " <> content
 }
 
 pub fn blamed_lines_to_one_line_string(lines: List(BlamedLine)) -> String {
@@ -136,7 +136,11 @@ fn max_length(margins: List(String)) -> Int {
 }
 
 fn vanilla_bob_margin_assembler(line: BlamedLine) -> String {
-  line.blame.filename <> ":" <> ins(line.blame.line_no) <> ":" <> ins(line.indent)
+  line.blame.filename
+  <> ":"
+  <> ins(line.blame.line_no)
+  <> ":"
+  <> ins(line.indent)
 }
 
 fn jane_sue_margin_assember(line: BlamedLine) -> String {
