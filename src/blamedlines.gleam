@@ -8,7 +8,7 @@ import gleam/string
 const ins = string.inspect
 
 pub type Blame {
-  Blame(filename: String, line_no: Int, comments: List(String))
+  Blame(filename: String, line_no: Int, char_no: Int, comments: List(String))
 }
 
 pub type BlamedLine {
@@ -25,15 +25,15 @@ type IndentAndContent =
   #(Int, String)
 
 pub fn clear_comments(blame: Blame) -> Blame {
-  Blame(blame.filename, blame.line_no, [])
+  Blame(..blame, comments: [])
 }
 
 pub fn prepend_comment(blame: Blame, comment: String) -> Blame {
-  Blame(blame.filename, blame.line_no, [comment, ..blame.comments])
+  Blame(..blame, comments: [comment, ..blame.comments])
 }
 
 pub fn append_comment(blame: Blame, comment: String) -> Blame {
-  Blame(blame.filename, blame.line_no, list.append(blame.comments, [comment]))
+  Blame(..blame, comments: list.append(blame.comments, [comment]))
 }
 
 pub fn first_blame_filename(lines: List(BlamedLine)) -> Result(String, Nil) {
@@ -44,18 +44,22 @@ pub fn first_blame_filename(lines: List(BlamedLine)) -> Result(String, Nil) {
 }
 
 pub fn empty_blame() -> Blame {
-  Blame("", -1, [])
+  Blame(filename: "", line_no: -1, char_no: -1, comments: [])
 }
 
 fn add_consecutive_blames_map_fold(
   state: LineNumberAndFilename,
   line: IndentAndContent,
 ) -> #(LineNumberAndFilename, BlamedLine) {
-  let #(line_number, filename) = state
+  let #(line_no, filename) = state
   let #(indent, content) = line
   #(
-    #(line_number + 1, filename),
-    BlamedLine(Blame(filename, line_number, []), indent, content),
+    #(line_no + 1, filename),
+    BlamedLine(
+      Blame(filename:, line_no:, char_no: -1, comments: []),
+      indent,
+      content,
+    ),
   )
 }
 
