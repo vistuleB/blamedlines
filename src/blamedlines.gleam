@@ -8,7 +8,7 @@ import gleam/string
 const ins = string.inspect
 
 pub type Blame {
-  Blame(filename: String, line_no: Int, comments: List(String))
+  Blame(filename: String, line_no: Int, char_no: Int, comments: List(String))
 }
 
 pub type BlamedLine {
@@ -25,15 +25,15 @@ type IndentAndContent =
   #(Int, String)
 
 pub fn clear_comments(blame: Blame) -> Blame {
-  Blame(blame.filename, blame.line_no, [])
+  Blame(blame.filename, blame.line_no, blame.char_no, [])
 }
 
 pub fn prepend_comment(blame: Blame, comment: String) -> Blame {
-  Blame(blame.filename, blame.line_no, [comment, ..blame.comments])
+  Blame(blame.filename, blame.line_no, blame.char_no, [comment, ..blame.comments])
 }
 
 pub fn append_comment(blame: Blame, comment: String) -> Blame {
-  Blame(blame.filename, blame.line_no, list.append(blame.comments, [comment]))
+  Blame(blame.filename, blame.line_no, blame.char_no, list.append(blame.comments, [comment]))
 }
 
 pub fn first_blame_filename(lines: List(BlamedLine)) -> Result(String, Nil) {
@@ -44,29 +44,33 @@ pub fn first_blame_filename(lines: List(BlamedLine)) -> Result(String, Nil) {
 }
 
 pub fn empty_blame() -> Blame {
-  Blame("", -1, [])
+  Blame("", -1, 0, [])
 }
 
 fn add_consecutive_blames_map_fold(
   state: LineNumberAndFilename,
   line: IndentAndContent,
+  starting_indent: Int,
 ) -> #(LineNumberAndFilename, BlamedLine) {
   let #(line_number, filename) = state
   let #(indent, content) = line
   #(
     #(line_number + 1, filename),
-    BlamedLine(Blame(filename, line_number, []), indent, content),
+    BlamedLine(Blame(filename, line_number, indent - starting_indent, []), indent, content),
   )
 }
 
 fn add_consecutive_blames(
   pairs: List(IndentAndContent),
   first_line_number_and_filename: LineNumberAndFilename,
+  starting_indent: Int,
 ) -> List(BlamedLine) {
   list.map_fold(
     pairs,
     first_line_number_and_filename,
-    add_consecutive_blames_map_fold,
+    fn(a, b) {
+      add_consecutive_blames_map_fold(a, b, starting_indent)
+    },
   )
   |> pair.second
 }
@@ -94,7 +98,7 @@ pub fn string_to_blamed_lines_hard_mode(
 ) -> List(BlamedLine) {
   string.split(source, "\n")
   |> get_indents_and_contents(starting_indent)
-  |> add_consecutive_blames(#(starting_line_number, filename))
+  |> add_consecutive_blames(#(starting_line_number, filename), starting_indent)
 }
 
 pub fn string_to_blamed_lines_easy_mode(
@@ -141,6 +145,8 @@ fn vanilla_bob_margin_assembler(line: BlamedLine) -> String {
   <> ins(line.blame.line_no)
   <> ":"
   <> ins(line.indent)
+  <> ":"
+  <> ins(line.blame.char_no)
 }
 
 fn jane_sue_margin_assember(line: BlamedLine) -> String {
