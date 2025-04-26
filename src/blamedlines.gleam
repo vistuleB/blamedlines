@@ -121,17 +121,6 @@ pub fn blamed_lines_to_string(lines: List(BlamedLine)) -> String {
   |> string.join("\n")
 }
 
-pub fn blamed_line_to_string_no_indent(line: BlamedLine) -> String {
-  let BlamedLine(_, _indent, content) = line
-  " " <> content
-}
-
-pub fn blamed_lines_to_one_line_string(lines: List(BlamedLine)) -> String {
-  lines
-  |> list.map(blamed_line_to_string_no_indent)
-  |> string.join("")
-}
-
 fn max_length(margins: List(String)) -> Int {
   case margins {
     [] -> 0
