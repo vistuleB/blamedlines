@@ -133,8 +133,8 @@ fn vanilla_bob_margin_assembler(line: BlamedLine) -> String {
   <> ":"
   <> ins(line.blame.line_no)
   <> ":"
-  <> ins(line.indent)
-  <> ":"
+  <> ins(line.blame.char_no)
+  <> " :i"
   <> ins(line.blame.char_no)
 }
 
