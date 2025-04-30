@@ -135,7 +135,7 @@ fn vanilla_bob_margin_assembler(line: BlamedLine) -> String {
   <> ":"
   <> ins(line.blame.char_no)
   <> " :i"
-  <> ins(line.blame.char_no)
+  <> ins(line.indent)
 }
 
 fn jane_sue_margin_assember(line: BlamedLine) -> String {
