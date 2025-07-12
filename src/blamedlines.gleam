@@ -4,6 +4,7 @@ import gleam/list
 import gleam/pair
 import gleam/result
 import gleam/string
+import simplifile.{type FileError}
 
 const ins = string.inspect
 
@@ -108,7 +109,15 @@ pub fn string_to_blamed_lines_easy_mode(
   string_to_blamed_lines_hard_mode(source, filename, 1, 0)
 }
 
+pub fn path_to_blamed_lines_easy_mode(
+  path: String,
+) -> Result(List(BlamedLine), FileError) {
+  use content <- result.try(simplifile.read(path))
+  Ok(string_to_blamed_lines_easy_mode(content, path))
+}
+
 pub const string_to_blamed_lines = string_to_blamed_lines_easy_mode
+pub const path_to_blamed_lines = path_to_blamed_lines_easy_mode
 
 pub fn blamed_line_to_string(line: BlamedLine) -> String {
   let BlamedLine(_, indent, content) = line
