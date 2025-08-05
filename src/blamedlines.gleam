@@ -184,8 +184,8 @@ fn concatenate_columns(col1: List(String), col2: List(String)) -> List(String) {
 
 fn blamed_lines_pretty_printer_no1_header(
   margin_total_width: Int,
-  margin_suffix: String,
   margin_prefix: String,
+  margin_suffix: String,
   extra_dashes_for_content: Int,
 ) -> String {
   string.repeat("-", margin_total_width + extra_dashes_for_content)
@@ -194,7 +194,7 @@ fn blamed_lines_pretty_printer_no1_header(
   <> "Blame"
   <> string.repeat(" ", margin_total_width - string.length(margin_prefix <> "Blame" <> margin_suffix))
   <> margin_suffix
-  <> "###Content\n"
+  <> "Content\n"
   <> string.repeat("-", margin_total_width + extra_dashes_for_content)
 }
 
@@ -273,6 +273,16 @@ pub fn blamed_lines_pretty_printer_no1(
     <> "\n"
     <> footer
   }
+}
+
+pub fn echo_blamed_lines(
+  lines: List(BlamedLine),
+  banner: String,
+) -> List(BlamedLine) {
+  lines
+  |> blamed_lines_pretty_printer_no1(banner)
+  |> io.println
+  lines
 }
 
 pub fn main() {
