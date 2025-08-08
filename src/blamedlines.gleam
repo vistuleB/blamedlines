@@ -147,8 +147,8 @@ fn all_but_comments_info(
   bl: BlamedLine,
 ) -> String {
   blame_digest(bl.blame)
-  <> " :i"
-  <> ins(bl.indent)
+  // <> " :i"
+  // <> ins(bl.indent)
 }
 
 fn comments_info(
@@ -242,14 +242,15 @@ fn blamed_lines_pretty_printer_no1_body(
   let margin_pt1_column =
     blamed_lines
     |> list.map(margin_part1_annotator)
-    |> pad_to_max_length_and_add(margin_prefix, margin_mid)
+    // |> pad_to_max_length_and_add(margin_prefix, margin_mid)
+    |> pad_to_at_least_and_add(43, margin_prefix, margin_mid)
 
   let col1_size = case list.first(margin_pt1_column) {
     Ok(s) -> string.length(s)
     _ -> 0
   }
 
-  let left_for_col2 = 86 - col1_size
+  let left_for_col2 = 78 - col1_size
 
   let margin_pt2_column =
     blamed_lines
@@ -293,7 +294,10 @@ pub fn blamed_lines_pretty_printer_no1(
       lines,
       all_but_comments_info,
       comments_info(_, 35),
-      prefix <> "(" <> banner <> ")",
+      case banner == "" {
+        True -> prefix
+        False -> prefix <> "(" <> banner <> ")"
+      },
       " ",
       " " <> suffix,
     )
