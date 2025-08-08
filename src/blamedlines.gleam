@@ -56,6 +56,14 @@ pub fn no_blame() -> Blame {
   Blame("", 0, 0, [])
 }
 
+pub fn blame_digest(blame: Blame) -> String {
+  blame.filename
+  <> ":"
+  <> ins(blame.line_no)
+  <> ":"
+  <> ins(blame.char_no)
+}
+
 // ***************************
 // BlamedLine utilities
 // ***************************
@@ -109,8 +117,8 @@ pub fn path_to_blamed_lines(
 // BlamedLine -> String & List(BlamedLine) -> String
 // **************************************************
 
-pub fn blamed_line_to_string(bic: BlamedLine) -> String {
-  spaces(bic.indent) <> bic.suffix
+pub fn blamed_line_to_string(bl: BlamedLine) -> String {
+  spaces(bl.indent) <> bl.suffix
 }
 
 pub fn blamed_lines_to_string(lines: List(BlamedLine)) -> String {
@@ -136,22 +144,30 @@ fn pad_to(
 }
 
 fn all_but_comments_info(
-  bic: BlamedLine,
+  bl: BlamedLine,
 ) -> String {
-  bic.blame.filename
-  <> ":"
-  <> ins(bic.blame.line_no)
-  <> ":"
-  <> ins(bic.blame.char_no)
+  blame_digest(bl.blame)
   <> " :i"
-  <> ins(bic.indent)
+  <> ins(bl.indent)
 }
 
 fn comments_info(
-  bic: BlamedLine,
+  bl: BlamedLine,
   truncate_at: Int,
 ) -> String {
-  let comments = ins(bic.blame.comments)
+  let comments = list.index_fold(
+    bl.blame.comments,
+    "[",
+    fn(acc, comment, i) {
+      acc <> case i > 0 {
+        True -> ", "
+        False -> ""
+      }
+      <> comment
+    }
+  )
+  <> "]"
+  
   let comments = case string.length(comments) > truncate_at {
     False -> comments
     True ->
@@ -160,17 +176,34 @@ fn comments_info(
   comments
 }
 
+fn max_list_string_length(
+  things: List(String),
+) -> Int {
+  things
+  |> list.map(string.length)
+  |> list.max(int.compare)
+  |> result.unwrap(0)
+}
+
 fn pad_to_max_length_and_add(
   things: List(String),
   prefix: String,
   suffix: String,
 ) -> List(String) {
-  let max_length =
-    things
-    |> list.map(string.length)
-    |> list.max(int.compare)
-    |> result.unwrap(0)
+  let max_length = max_list_string_length(things)
+  things
+  |> list.map(fn(s) {
+    prefix <> pad_to(s, max_length) <> suffix
+  })
+}
 
+fn pad_to_at_least_and_add(
+  things: List(String),
+  at_least: Int,
+  prefix: String,
+  suffix: String,
+) -> List(String) {
+  let max_length = int.max(at_least, max_list_string_length(things))
   things
   |> list.map(fn(s) {
     prefix <> pad_to(s, max_length) <> suffix
@@ -211,10 +244,17 @@ fn blamed_lines_pretty_printer_no1_body(
     |> list.map(margin_part1_annotator)
     |> pad_to_max_length_and_add(margin_prefix, margin_mid)
 
+  let col1_size = case list.first(margin_pt1_column) {
+    Ok(s) -> string.length(s)
+    _ -> 0
+  }
+
+  let left_for_col2 = 86 - col1_size
+
   let margin_pt2_column =
     blamed_lines
     |> list.map(margin_part2_annotator)
-    |> pad_to_max_length_and_add("", margin_suffix)
+    |> pad_to_at_least_and_add(left_for_col2, "", margin_suffix)
 
   let margin_column =
     concatenate_columns(margin_pt1_column, margin_pt2_column)
@@ -229,9 +269,7 @@ fn blamed_lines_pretty_printer_no1_body(
 
   let margin_total_width =
     margin_column
-    |> list.map(string.length)
-    |> list.max(int.compare)
-    |> result.unwrap(0)
+    |> max_list_string_length
   
   #(final_content, margin_total_width)
 }
