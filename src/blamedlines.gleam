@@ -185,17 +185,17 @@ fn max_list_string_length(
   |> result.unwrap(0)
 }
 
-fn pad_to_max_length_and_add(
-  things: List(String),
-  prefix: String,
-  suffix: String,
-) -> List(String) {
-  let max_length = max_list_string_length(things)
-  things
-  |> list.map(fn(s) {
-    prefix <> pad_to(s, max_length) <> suffix
-  })
-}
+// fn pad_to_max_length_and_add(
+//   things: List(String),
+//   prefix: String,
+//   suffix: String,
+// ) -> List(String) {
+//   let max_length = max_list_string_length(things)
+//   things
+//   |> list.map(fn(s) {
+//     prefix <> pad_to(s, max_length) <> suffix
+//   })
+// }
 
 fn pad_to_at_least_and_add(
   things: List(String),
