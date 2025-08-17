@@ -313,12 +313,19 @@ pub fn echo_output_lines(
   lines
 }
 
+pub fn input_lines_to_output_lines(
+  lines: List(InputLine)
+) -> List(OutputLine) {
+  lines
+  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
+}
+
 pub fn echo_input_lines(
   lines: List(InputLine),
   banner: String,
 ) -> List(InputLine) {
   lines
-  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
+  |> input_lines_to_output_lines
   |> output_lines_pretty_printer_no1(banner)
   |> io.println
   lines
