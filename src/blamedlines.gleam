@@ -5,16 +5,22 @@ import gleam/result
 import gleam/string
 import simplifile.{type FileError}
 
-// this module contains the two must 'upstream' types,
-// that are dissociated from any particular format
+// this module is in the process of being refactored;
+// it contains the type
 //
 // - Blame
-// - BlamedLine
 //
-// note that List(BlamedLine) is used as the primary
-// intermediary data format when either serializing or 
-// deserializing Writerly or VXML, but does not concern
-// the average user
+// that is the most upstream type of all, and
+//
+// - InputLine
+// - OutputLine
+//
+// that are separated only for the purpose of user
+// semantics & readability (they are the same type); as
+// it so happens that conversion from one to the other
+// never takes place in the course of a normal
+// computation (the possible exception being the serialization
+// of a List(InputLine) for the purpose of debugging)
 
 const ins = string.inspect
 const len = string.length
@@ -28,17 +34,27 @@ pub type Blame {
   )
 }
 
-pub type BlamedLine {
-  BlamedLine(
+pub type InputLine {
+  InputLine(
     blame: Blame,
-    indent: Int,      // does not necessarily coincide with blame.char_no as individual files find themselves embedded with an added indentation inside the final source -- this value here is the "final indentation" of the embedded content, whereas blame.char_no will refer to the original column number of the content as it found in the original source file containing that content 
-    suffix: String,
+    indent: Int,
+    content: String,
+  )
+}
+
+pub type OutputLine {
+  OutputLine(
+    blame: Blame,
+    indent: Int,
+    content: String,
   )
 }
 
 // ***************************
 // Blame utilities
 // ***************************
+
+pub const no_blame = Blame("", 0, 0, [])
 
 pub fn clear_comments(blame: Blame) -> Blame {
   Blame(..blame, comments: [])
@@ -52,88 +68,70 @@ pub fn append_comment(blame: Blame, comment: String) -> Blame {
   Blame(..blame, comments: list.append(blame.comments, [comment]))
 }
 
-pub fn no_blame() -> Blame {
-  Blame("", 0, 0, [])
+pub fn advance(blame: Blame, by: Int) -> Blame {
+  Blame(..blame, char_no: blame.char_no + by)
 }
 
 pub fn blame_digest(blame: Blame) -> String {
-// case blame.filename == "" && blame.line_no <= 0 {
-//   True -> "--"
-//   False -> {
   blame.filename
   <> ":"
   <> ins(blame.line_no)
   <> ":"
   <> ins(blame.char_no)
-//   }
-// }
-}
-
-// ***************************
-// BlamedLine utilities
-// ***************************
-
-pub fn filename_of_first_blame(
-  blamed_lines: List(BlamedLine)
-) -> Result(String, Nil) {
-  case blamed_lines {
-    [first, ..] -> Ok(first.blame.filename)
-    _ -> Error(Nil)
-  }
 }
 
 // **************************************************
-// creating List(BlamedLine) from file contents or filenames
+// String -> List(InputLine) & path -> String -> List(InputLine)
 // **************************************************
 
-pub fn string_to_blamed_lines(
+pub fn string_to_input_lines(
   source: String,
-  file: String,
+  path: String,
   added_indentation: Int,
-) -> List(BlamedLine) {
+) -> List(InputLine) {
   string.split(source, "\n")
   |> list.index_map(
     fn (s, i) {
-      let suffix = string.trim_start(s)
-      let indent = len(s) - len(suffix)
-      BlamedLine(
+      let content = string.trim_start(s)
+      let indent = len(s) - len(content)
+      InputLine(
         blame: Blame(
-          filename: file,
+          filename: path,
           line_no: i + 1,
           char_no: indent,
           comments: [],
         ),
         indent: indent + added_indentation,
-        suffix: suffix,
+        content: content,
       )
     }
   )
 }
 
-pub fn path_to_blamed_lines(
-  file: String,
+pub fn read(
+  path: String,
   added_indentation: Int,
-) -> Result(List(BlamedLine), FileError) {
-  simplifile.read(file)
-  |> result.map(string_to_blamed_lines(_, file, added_indentation))
+) -> Result(List(InputLine), FileError) {
+  simplifile.read(path)
+  |> result.map(string_to_input_lines(_, path, added_indentation))
 }
 
 // **************************************************
-// BlamedLine -> String & List(BlamedLine) -> String
+// OutputLine -> String & List(OutputLine) -> String
 // **************************************************
 
-pub fn blamed_line_to_string(bl: BlamedLine) -> String {
-  spaces(bl.indent) <> bl.suffix
+pub fn output_line_to_string(line: OutputLine) -> String {
+  spaces(line.indent) <> line.content
 }
 
-pub fn blamed_lines_to_string(lines: List(BlamedLine)) -> String {
+pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
   lines
-  |> list.map(blamed_line_to_string)
+  |> list.map(output_line_to_string)
   |> string.join("\n")
 }
 
 // **************************************************
-// List(BlamedLine) pretty-printer (no1)
+// List(OutputLine) pretty-printer (no1)
 // **************************************************
 
 fn spaces(i: Int) -> String {
@@ -149,19 +147,17 @@ fn pad_to(
 }
 
 fn all_but_comments_info(
-  bl: BlamedLine,
+  line: OutputLine,
 ) -> String {
-  blame_digest(bl.blame)
-  // <> " :i"
-  // <> ins(bl.indent)
+  blame_digest(line.blame)
 }
 
 fn comments_info(
-  bl: BlamedLine,
+  line: OutputLine,
   truncate_at: Int,
 ) -> String {
   let comments = list.index_fold(
-    bl.blame.comments,
+    line.blame.comments,
     "[",
     fn(acc, comment, i) {
       acc <> case i > 0 {
@@ -190,18 +186,6 @@ fn max_list_string_length(
   |> result.unwrap(0)
 }
 
-// fn pad_to_max_length_and_add(
-//   things: List(String),
-//   prefix: String,
-//   suffix: String,
-// ) -> List(String) {
-//   let max_length = max_list_string_length(things)
-//   things
-//   |> list.map(fn(s) {
-//     prefix <> pad_to(s, max_length) <> suffix
-//   })
-// }
-
 fn pad_to_at_least_and_add(
   things: List(String),
   at_least: Int,
@@ -210,9 +194,7 @@ fn pad_to_at_least_and_add(
 ) -> List(String) {
   let max_length = int.max(at_least, max_list_string_length(things))
   things
-  |> list.map(fn(s) {
-    prefix <> pad_to(s, max_length) <> suffix
-  })
+  |> list.map(fn(s) {prefix <> pad_to(s, max_length) <> suffix})
 }
 
 fn concatenate_columns(col1: List(String), col2: List(String)) -> List(String) {
@@ -220,7 +202,7 @@ fn concatenate_columns(col1: List(String), col2: List(String)) -> List(String) {
   list.map2(col1, col2, fn(c1, c2) { c1 <> c2 })
 }
 
-fn blamed_lines_pretty_printer_no1_header(
+fn output_lines_pretty_printer_no1_header(
   margin_total_width: Int,
   margin_prefix: String,
   margin_suffix: String,
@@ -236,16 +218,16 @@ fn blamed_lines_pretty_printer_no1_header(
   <> string.repeat("-", margin_total_width + extra_dashes_for_content)
 }
 
-fn blamed_lines_pretty_printer_no1_body(
-  blamed_lines: List(BlamedLine),
-  margin_part1_annotator: fn(BlamedLine) -> String,
-  margin_part2_annotator: fn(BlamedLine) -> String,
+fn output_lines_pretty_printer_no1_body(
+  lines: List(OutputLine),
+  margin_part1_annotator: fn(OutputLine) -> String,
+  margin_part2_annotator: fn(OutputLine) -> String,
   margin_prefix: String,
   margin_mid: String,
   margin_suffix: String,
 ) -> #(String, Int) {
   let margin_pt1_column =
-    blamed_lines
+    lines
     |> list.map(margin_part1_annotator)
     |> pad_to_at_least_and_add(43, margin_prefix, margin_mid)
 
@@ -257,7 +239,7 @@ fn blamed_lines_pretty_printer_no1_body(
   let left_for_col2 = 78 - col1_size
 
   let margin_pt2_column =
-    blamed_lines
+    lines
     |> list.map(margin_part2_annotator)
     |> pad_to_at_least_and_add(left_for_col2, "", margin_suffix)
 
@@ -265,8 +247,8 @@ fn blamed_lines_pretty_printer_no1_body(
     concatenate_columns(margin_pt1_column, margin_pt2_column)
 
   let contents_column =
-    blamed_lines
-    |> list.map(blamed_line_to_string)
+    lines
+    |> list.map(output_line_to_string)
 
   let final_content =
     concatenate_columns(margin_column, contents_column)
@@ -279,22 +261,22 @@ fn blamed_lines_pretty_printer_no1_body(
   #(final_content, margin_total_width)
 }
 
-fn blamed_lines_pretty_printer_no1_footer(
+fn output_lines_pretty_printer_no1_footer(
   margin_total_width: Int,
   extra_dashes_for_content: Int,
 ) -> String {
   string.repeat("-", margin_total_width + extra_dashes_for_content)
 }
 
-pub fn blamed_lines_pretty_printer_no1(
-  lines: List(BlamedLine),
+pub fn output_lines_pretty_printer_no1(
+  lines: List(OutputLine),
   banner: String,
 ) -> String {
   let prefix = "| "
   let suffix = "###"
 
   let #(body, margin_total_width) =
-    blamed_lines_pretty_printer_no1_body(
+    output_lines_pretty_printer_no1_body(
       lines,
       all_but_comments_info,
       comments_info(_, 35),
@@ -307,10 +289,10 @@ pub fn blamed_lines_pretty_printer_no1(
     )
 
   let header = 
-    blamed_lines_pretty_printer_no1_header(margin_total_width, prefix, suffix, 20)
+    output_lines_pretty_printer_no1_header(margin_total_width, prefix, suffix, 20)
 
   let footer =
-    blamed_lines_pretty_printer_no1_footer(margin_total_width, 20)
+    output_lines_pretty_printer_no1_footer(margin_total_width, 20)
   
   {
     header
@@ -321,12 +303,23 @@ pub fn blamed_lines_pretty_printer_no1(
   }
 }
 
-pub fn echo_blamed_lines(
-  lines: List(BlamedLine),
+pub fn echo_output_lines(
+  lines: List(OutputLine),
   banner: String,
-) -> List(BlamedLine) {
+) -> List(OutputLine) {
   lines
-  |> blamed_lines_pretty_printer_no1(banner)
+  |> output_lines_pretty_printer_no1(banner)
+  |> io.println
+  lines
+}
+
+pub fn echo_input_lines(
+  lines: List(InputLine),
+  banner: String,
+) -> List(InputLine) {
+  lines
+  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
+  |> output_lines_pretty_printer_no1(banner)
   |> io.println
   lines
 }
