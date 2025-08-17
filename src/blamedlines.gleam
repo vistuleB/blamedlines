@@ -57,11 +57,16 @@ pub fn no_blame() -> Blame {
 }
 
 pub fn blame_digest(blame: Blame) -> String {
+// case blame.filename == "" && blame.line_no <= 0 {
+//   True -> "--"
+//   False -> {
   blame.filename
   <> ":"
   <> ins(blame.line_no)
   <> ":"
   <> ins(blame.char_no)
+//   }
+// }
 }
 
 // ***************************
@@ -242,7 +247,6 @@ fn blamed_lines_pretty_printer_no1_body(
   let margin_pt1_column =
     blamed_lines
     |> list.map(margin_part1_annotator)
-    // |> pad_to_max_length_and_add(margin_prefix, margin_mid)
     |> pad_to_at_least_and_add(43, margin_prefix, margin_mid)
 
   let col1_size = case list.first(margin_pt1_column) {
