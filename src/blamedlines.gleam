@@ -80,6 +80,23 @@ pub fn blame_digest(blame: Blame) -> String {
   <> ins(blame.char_no)
 }
 
+pub fn comments_digest(
+  blame: Blame,
+) -> String {
+  list.index_fold(
+    blame.comments,
+    "[",
+    fn(acc, comment, i) {
+      acc <> case i > 0 {
+        True -> ", "
+        False -> ""
+      }
+      <> comment
+    }
+  )
+  <> "]"
+}
+
 // **************************************************
 // String -> List(InputLine) & path -> String -> List(InputLine)
 // **************************************************
@@ -138,169 +155,109 @@ fn spaces(i: Int) -> String {
   string.repeat(" ", i)
 }
 
-fn pad_to(
-  thing: String,
-  length: Int,
+fn truncate_with_suffix_or_pad(
+  content: String,
+  desired_length: Int,
+  truncation_suffix: String,
 ) -> String {
-  thing
-  <> spaces(length - string.length(thing))
+  let l = string.length(content)
+  case l > desired_length {
+    True -> string.drop_end(content, l - {desired_length - string.length(truncation_suffix)}) <> truncation_suffix
+    False -> content <> spaces(desired_length - l)
+  }
 }
 
-fn all_but_comments_info(
-  line: OutputLine,
-) -> String {
-  blame_digest(line.blame)
-}
-
-fn comments_info(
-  line: OutputLine,
-  truncate_at: Int,
-) -> String {
-  let comments = list.index_fold(
-    line.blame.comments,
-    "[",
-    fn(acc, comment, i) {
-      acc <> case i > 0 {
-        True -> ", "
-        False -> ""
-      }
-      <> comment
+fn glue_columns_3(
+  table_lines: List(#(String, String, String)),
+  min_max_col1: #(Int, Int),
+  min_max_col2: #(Int, Int),
+  truncation_suffix_col1: String,
+  truncation_suffix_col2: String,
+) -> #(#(Int, Int), List(String)) {
+  let #(col1_max, col2_max) = list.fold(
+    table_lines,
+    #(0, 0),
+    fn (acc, tuple) {
+      #(
+        int.max(acc.0, tuple.0 |> string.length),
+        int.max(acc.1, tuple.1 |> string.length),
+      )
     }
   )
-  <> "]"
-  
-  let comments = case string.length(comments) > truncate_at {
-    False -> comments
-    True ->
-      string.drop_end(comments, string.length(comments) - truncate_at + 4) <> "...]"
-  }
-  comments
+
+  let col1_size = int.max(int.min(col1_max, min_max_col1.1), min_max_col1.0)
+  let col2_size = int.max(int.min(col2_max, min_max_col2.1), min_max_col2.0)
+
+  let table_lines =
+    list.map(
+      table_lines,
+      fn (tuple) {
+        truncate_with_suffix_or_pad(tuple.0, col1_size, truncation_suffix_col1)
+        <> truncate_with_suffix_or_pad(tuple.1, col2_size, truncation_suffix_col2)
+        <> tuple.2
+      }
+    )
+
+  #(#(col1_max, col2_max), table_lines)
 }
 
-fn max_list_string_length(
-  things: List(String),
-) -> Int {
-  things
-  |> list.map(string.length)
-  |> list.max(int.compare)
-  |> result.unwrap(0)
-}
-
-fn pad_to_at_least_and_add(
-  things: List(String),
-  at_least: Int,
-  prefix: String,
-  suffix: String,
+fn pretty_printer_no1_header_lines(
+  margin_total_width: Int,
+  extra_dashes_for_content: Int,
 ) -> List(String) {
-  let max_length = int.max(at_least, max_list_string_length(things))
-  things
-  |> list.map(fn(s) {prefix <> pad_to(s, max_length) <> suffix})
+  [
+    string.repeat("-", margin_total_width + extra_dashes_for_content),
+    "| Blame" <> string.repeat(" ", margin_total_width - {"| Blame###" |> string.length}) <> "###Content",
+    string.repeat("-", margin_total_width + extra_dashes_for_content),
+  ]
 }
 
-fn concatenate_columns(col1: List(String), col2: List(String)) -> List(String) {
-  let assert True = list.length(col1) == list.length(col2)
-  list.map2(col1, col2, fn(c1, c2) { c1 <> c2 })
-}
-
-fn output_lines_pretty_printer_no1_header(
-  margin_total_width: Int,
-  margin_prefix: String,
-  margin_suffix: String,
-  extra_dashes_for_content: Int,
-) -> String {
-  string.repeat("-", margin_total_width + extra_dashes_for_content)
-  <> "\n"
-  <> margin_prefix
-  <> "Blame"
-  <> string.repeat(" ", margin_total_width - string.length(margin_prefix <> "Blame" <> margin_suffix))
-  <> margin_suffix
-  <> "Content\n"
-  <> string.repeat("-", margin_total_width + extra_dashes_for_content)
-}
-
-fn output_lines_pretty_printer_no1_body(
-  lines: List(OutputLine),
-  margin_part1_annotator: fn(OutputLine) -> String,
-  margin_part2_annotator: fn(OutputLine) -> String,
-  margin_prefix: String,
-  margin_mid: String,
-  margin_suffix: String,
-) -> #(String, Int) {
-  let margin_pt1_column =
-    lines
-    |> list.map(margin_part1_annotator)
-    |> pad_to_at_least_and_add(43, margin_prefix, margin_mid)
-
-  let col1_size = case list.first(margin_pt1_column) {
-    Ok(s) -> string.length(s)
-    _ -> 0
+fn pretty_printer_no1_body_lines(
+  contents: List(OutputLine),
+  banner: String,
+) -> #(#(Int, Int), List(String)) {
+  let banner = case banner == "" {
+    True -> ""
+    False -> "(" <> banner <> ")"
   }
 
-  let left_for_col2 = 78 - col1_size
+  let #(#(cols1, cols2), table_lines) =
+    list.map(
+      contents,
+      fn(c) {#(
+        "| " <> banner <> blame_digest(c.blame),
+        comments_digest(c.blame),
+        "###" <> c.content,
+      )},
+    )
+    |> glue_columns_3(#(43, 43), #(35, 35), "...", "...]")
 
-  let margin_pt2_column =
-    lines
-    |> list.map(margin_part2_annotator)
-    |> pad_to_at_least_and_add(left_for_col2, "", margin_suffix)
-
-  let margin_column =
-    concatenate_columns(margin_pt1_column, margin_pt2_column)
-
-  let contents_column =
-    lines
-    |> list.map(output_line_to_string)
-
-  let final_content =
-    concatenate_columns(margin_column, contents_column)
-    |> string.join("\n")
-
-  let margin_total_width =
-    margin_column
-    |> max_list_string_length
-  
-  #(final_content, margin_total_width)
+  #(#(cols1, cols2), table_lines)
 }
 
-fn output_lines_pretty_printer_no1_footer(
+fn pretty_printer_no1_footer_lines(
   margin_total_width: Int,
   extra_dashes_for_content: Int,
-) -> String {
-  string.repeat("-", margin_total_width + extra_dashes_for_content)
+) -> List(String) {
+  [
+    string.repeat("-", margin_total_width + extra_dashes_for_content),
+  ]
 }
 
 pub fn output_lines_pretty_printer_no1(
-  lines: List(OutputLine),
+  content: List(OutputLine),
   banner: String,
 ) -> String {
-  let prefix = "| "
-  let suffix = "###"
+  let #(#(cols1, cols2), body_lines) =
+    pretty_printer_no1_body_lines(content, banner)
 
-  let #(body, margin_total_width) =
-    output_lines_pretty_printer_no1_body(
-      lines,
-      all_but_comments_info,
-      comments_info(_, 35),
-      case banner == "" {
-        True -> prefix
-        False -> prefix <> "(" <> banner <> ")"
-      },
-      " ",
-      " " <> suffix,
-    )
-
-  let header = 
-    output_lines_pretty_printer_no1_header(margin_total_width, prefix, suffix, 20)
-
-  let footer =
-    output_lines_pretty_printer_no1_footer(margin_total_width, 20)
-  
-  {
-    header
-    <> "\n"
-    <> body
-    <> "\n"
-    <> footer
-  }
+  [
+    pretty_printer_no1_header_lines(cols1 + cols2, 35),
+    body_lines,
+    pretty_printer_no1_footer_lines(cols1 + cols2, 35),
+  ]
+  |> list.flatten
+  |> string.join("\n")
 }
 
 pub fn echo_output_lines(
