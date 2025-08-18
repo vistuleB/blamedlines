@@ -227,7 +227,7 @@ fn pretty_printer_no1_body_lines(
       fn(c) {#(
         "| " <> banner <> blame_digest(c.blame),
         comments_digest(c.blame),
-        "###" <> c.content,
+        "###" <> spaces(c.indent) <> c.content,
       )},
     )
     |> glue_columns_3(#(43, 43), #(35, 35), "...", "...]")
