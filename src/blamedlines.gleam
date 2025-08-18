@@ -15,38 +15,32 @@ import simplifile.{type FileError}
 // - InputLine
 // - OutputLine
 //
-// that are separated only for the purpose of user
-// semantics & readability (they are the same type); as
-// it so happens that conversion from one to the other
-// never takes place in the course of a normal
-// computation (the possible exception being the serialization
-// of a List(InputLine) for the purpose of debugging)
+// that are currently the same type in disguise (but
+// this is subject to change)
 
 const ins = string.inspect
 const len = string.length
 
+// ***************************
+// Blame
+// ***************************
+
 pub type Blame {
-  Blame(
-    filename: String,
+  Src(
+    comments: List(String),
+    path: String,
     line_no: Int,
     char_no: Int,
+  )
+
+  Des(
     comments: List(String),
+    name: String,
   )
-}
 
-pub type InputLine {
-  InputLine(
-    blame: Blame,
-    indent: Int,
-    content: String,
-  )
-}
-
-pub type OutputLine {
-  OutputLine(
-    blame: Blame,
-    indent: Int,
-    content: String,
+  Em(
+    comments: List(String),
+    name: String,
   )
 }
 
@@ -54,30 +48,45 @@ pub type OutputLine {
 // Blame utilities
 // ***************************
 
-pub const no_blame = Blame("", 0, 0, [])
+pub const no_blame = Src([], "", 0, 0)
 
 pub fn clear_comments(blame: Blame) -> Blame {
-  Blame(..blame, comments: [])
+  case blame {
+    Src(_, _, _, _) -> Src(..blame, comments: [])
+    Des(_, _) -> Des(..blame, comments: [])
+    Em(_, _) -> Em(..blame, comments: [])
+  }
 }
 
 pub fn prepend_comment(blame: Blame, comment: String) -> Blame {
-  Blame(..blame, comments: [comment, ..blame.comments])
+  case blame {
+    Src(_, _, _, _) -> Src(..blame, comments: [comment, ..blame.comments])
+    Des(_, _) -> Des(..blame, comments: [comment, ..blame.comments])
+    Em(_, _) -> Em(..blame, comments: [comment, ..blame.comments])
+  }
 }
 
 pub fn append_comment(blame: Blame, comment: String) -> Blame {
-  Blame(..blame, comments: list.append(blame.comments, [comment]))
+  case blame {
+    Src(_, _, _, _) -> Src(..blame, comments: list.append(blame.comments, [comment]))
+    Des(_, _) -> Des(..blame, comments: list.append(blame.comments, [comment]))
+    Em(_, _) -> Em(..blame, comments: list.append(blame.comments, [comment]))
+  }  
 }
 
 pub fn advance(blame: Blame, by: Int) -> Blame {
-  Blame(..blame, char_no: blame.char_no + by)
+  case blame {
+    Src(_, _, _, _) -> Src(..blame, char_no: blame.char_no + by)
+    _ -> blame
+  }
 }
 
 pub fn blame_digest(blame: Blame) -> String {
-  blame.filename
-  <> ":"
-  <> ins(blame.line_no)
-  <> ":"
-  <> ins(blame.char_no)
+  case blame {
+    Src(_, path, line_no, char_no) -> "s - " <> path <> ":" <> ins(line_no) <> ":" <> ins(char_no)
+    Des(_, name) -> "d - " <> name
+    Em(_, name) -> "e - " <> name
+  }
 }
 
 pub fn comments_digest(
@@ -97,6 +106,26 @@ pub fn comments_digest(
   <> "]"
 }
 
+// ***************************
+// InputLine, OutputLine
+// ***************************
+
+pub type InputLine {
+  InputLine(
+    blame: Blame,
+    indent: Int,
+    content: String,
+  )
+}
+
+pub type OutputLine {
+  OutputLine(
+    blame: Blame,
+    indent: Int,
+    content: String,
+  )
+}
+
 // **************************************************
 // String -> List(InputLine) & path -> String -> List(InputLine)
 // **************************************************
@@ -112,11 +141,11 @@ pub fn string_to_input_lines(
       let content = string.trim_start(s)
       let indent = len(s) - len(content)
       InputLine(
-        blame: Blame(
-          filename: path,
+        blame: Src(
+          comments: [],
+          path: path,
           line_no: i + 1,
           char_no: indent,
-          comments: [],
         ),
         indent: indent + added_indentation,
         content: content,
