@@ -330,7 +330,7 @@ pub fn blamed_strings_pretty_printer_no1(
 // **************************************************
 
 pub fn input_lines_pretty_printer_no1(
-  content: List(OutputLine),
+  content: List(InputLine),
   banner: String,
 ) -> String {
   content
