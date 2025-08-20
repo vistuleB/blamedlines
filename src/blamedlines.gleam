@@ -188,6 +188,17 @@ pub fn read(
 }
 
 // **************************************************
+// List(InputLine) -> List(OutputLine)
+// **************************************************
+
+pub fn input_lines_to_output_lines(
+  lines: List(InputLine)
+) -> List(OutputLine) {
+  lines
+  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
+}
+
+// **************************************************
 // OutputLine -> String & List(OutputLine) -> String
 // **************************************************
 
@@ -202,7 +213,7 @@ pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
 }
 
 // **************************************************
-// List(OutputLine) pretty-printer (no1)
+// List(#(Blame, String)) pretty-printer (no1)
 // **************************************************
 
 fn spaces(i: Int) -> String {
@@ -267,7 +278,7 @@ fn pretty_printer_no1_header_lines(
 }
 
 fn pretty_printer_no1_body_lines(
-  contents: List(OutputLine),
+  contents: List(#(Blame, String)),
   banner: String,
 ) -> #(#(Int, Int), List(String)) {
   let banner = case banner == "" {
@@ -279,9 +290,9 @@ fn pretty_printer_no1_body_lines(
     list.map(
       contents,
       fn(c) {#(
-        "| " <> banner <> blame_digest(c.blame),
-        comments_digest(c.blame),
-        "###" <> spaces(c.indent) <> c.content,
+        "| " <> banner <> blame_digest(c.0),
+        comments_digest(c.0),
+        "###" <> c.1,
       )},
     )
     |> glue_columns_3(#(48, 48), #(30, 30), "...", "...]")
@@ -298,12 +309,12 @@ fn pretty_printer_no1_footer_lines(
   ]
 }
 
-pub fn output_lines_pretty_printer_no1(
-  content: List(OutputLine),
+pub fn blamed_strings_pretty_printer_no1(
+  lines: List(#(Blame, String)),
   banner: String,
 ) -> String {
   let #(#(cols1, cols2), body_lines) =
-    pretty_printer_no1_body_lines(content, banner)
+    pretty_printer_no1_body_lines(lines, banner)
 
   [
     pretty_printer_no1_header_lines(cols1 + cols2, 35),
@@ -313,6 +324,32 @@ pub fn output_lines_pretty_printer_no1(
   |> list.flatten
   |> string.join("\n")
 }
+
+// **************************************************
+// List(OutputLine) & List(InputLine) pretty-printer (no1)
+// **************************************************
+
+pub fn input_lines_pretty_printer_no1(
+  content: List(OutputLine),
+  banner: String,
+) -> String {
+  content
+  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.content)})
+  |> blamed_strings_pretty_printer_no1(banner)
+}
+
+pub fn output_lines_pretty_printer_no1(
+  content: List(OutputLine),
+  banner: String,
+) -> String {
+  content
+  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.content)})
+  |> blamed_strings_pretty_printer_no1(banner)
+}
+
+// **************************************************
+// echo_output_lines & echo_input_lines
+// **************************************************
 
 pub fn echo_output_lines(
   lines: List(OutputLine),
@@ -324,20 +361,13 @@ pub fn echo_output_lines(
   lines
 }
 
-pub fn input_lines_to_output_lines(
-  lines: List(InputLine)
-) -> List(OutputLine) {
-  lines
-  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
-}
-
 pub fn echo_input_lines(
   lines: List(InputLine),
   banner: String,
 ) -> List(InputLine) {
   lines
-  |> input_lines_to_output_lines
-  |> output_lines_pretty_printer_no1(banner)
+  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.content)})
+  |> blamed_strings_pretty_printer_no1(banner)
   |> io.println
   lines
 }
