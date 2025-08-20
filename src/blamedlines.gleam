@@ -36,6 +36,7 @@ pub type Blame {
   Des(
     comments: List(String),
     name: String,
+    line_no: Int,
   )
 
   Em(
@@ -62,8 +63,8 @@ pub fn source_blame(
   Src([], path, line_no, char_no)
 }
 
-pub fn desugarer_blame(name: String) -> Blame {
-  Des([], name)
+pub fn desugarer_blame(name: String, line_no: Int) -> Blame {
+  Des([], name, line_no)
 }
 
 pub fn emitter_blame(name: String) -> Blame {
@@ -73,7 +74,7 @@ pub fn emitter_blame(name: String) -> Blame {
 pub fn clear_comments(blame: Blame) -> Blame {
   case blame {
     Src(_, _, _, _) -> Src(..blame, comments: [])
-    Des(_, _) -> Des(..blame, comments: [])
+    Des(_, _, _) -> Des(..blame, comments: [])
     Em(_, _) -> Em(..blame, comments: [])
     NoBlame(_) -> NoBlame([])
   }
@@ -82,7 +83,7 @@ pub fn clear_comments(blame: Blame) -> Blame {
 pub fn prepend_comment(blame: Blame, comment: String) -> Blame {
   case blame {
     Src(_, _, _, _) -> Src(..blame, comments: [comment, ..blame.comments])
-    Des(_, _) -> Des(..blame, comments: [comment, ..blame.comments])
+    Des(_, _, _) -> Des(..blame, comments: [comment, ..blame.comments])
     Em(_, _) -> Em(..blame, comments: [comment, ..blame.comments])
     NoBlame(_) -> NoBlame(comments: [comment, ..blame.comments])
   }
@@ -91,7 +92,7 @@ pub fn prepend_comment(blame: Blame, comment: String) -> Blame {
 pub fn append_comment(blame: Blame, comment: String) -> Blame {
   case blame {
     Src(_, _, _, _) -> Src(..blame, comments: list.append(blame.comments, [comment]))
-    Des(_, _) -> Des(..blame, comments: list.append(blame.comments, [comment]))
+    Des(_, _, _) -> Des(..blame, comments: list.append(blame.comments, [comment]))
     Em(_, _) -> Em(..blame, comments: list.append(blame.comments, [comment]))
     NoBlame(_) -> NoBlame(comments: list.append(blame.comments, [comment]))
   }  
@@ -107,7 +108,7 @@ pub fn advance(blame: Blame, by: Int) -> Blame {
 pub fn blame_digest(blame: Blame) -> String {
   case blame {
     Src(_, path, line_no, char_no) -> path <> ":" <> ins(line_no) <> ":" <> ins(char_no)
-    Des(_, name) -> name
+    Des(_, name, line_no) -> name <> ":L" <> ins(line_no)
     Em(_, name) -> "e:" <> name
     NoBlame(_) -> ""
   }
