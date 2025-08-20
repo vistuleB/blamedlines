@@ -42,19 +42,40 @@ pub type Blame {
     comments: List(String),
     name: String,
   )
+
+  NoBlame(
+    comments: List(String),
+  )
 }
 
 // ***************************
 // Blame utilities
 // ***************************
 
-pub const no_blame = Src([], "", 0, 0)
+pub const no_blame = NoBlame([])
+
+pub fn source_blame(
+  path: String,
+  line_no: Int,
+  char_no: Int,
+) -> Blame {
+  Src([], path, line_no, char_no)
+}
+
+pub fn desugarer_blame(name: String) -> Blame {
+  Des([], name)
+}
+
+pub fn emitter_blame(name: String) -> Blame {
+  Em([], name)
+}
 
 pub fn clear_comments(blame: Blame) -> Blame {
   case blame {
     Src(_, _, _, _) -> Src(..blame, comments: [])
     Des(_, _) -> Des(..blame, comments: [])
     Em(_, _) -> Em(..blame, comments: [])
+    NoBlame(_) -> NoBlame([])
   }
 }
 
@@ -63,6 +84,7 @@ pub fn prepend_comment(blame: Blame, comment: String) -> Blame {
     Src(_, _, _, _) -> Src(..blame, comments: [comment, ..blame.comments])
     Des(_, _) -> Des(..blame, comments: [comment, ..blame.comments])
     Em(_, _) -> Em(..blame, comments: [comment, ..blame.comments])
+    NoBlame(_) -> NoBlame(comments: [comment, ..blame.comments])
   }
 }
 
@@ -71,6 +93,7 @@ pub fn append_comment(blame: Blame, comment: String) -> Blame {
     Src(_, _, _, _) -> Src(..blame, comments: list.append(blame.comments, [comment]))
     Des(_, _) -> Des(..blame, comments: list.append(blame.comments, [comment]))
     Em(_, _) -> Em(..blame, comments: list.append(blame.comments, [comment]))
+    NoBlame(_) -> NoBlame(comments: list.append(blame.comments, [comment]))
   }  
 }
 
@@ -83,9 +106,10 @@ pub fn advance(blame: Blame, by: Int) -> Blame {
 
 pub fn blame_digest(blame: Blame) -> String {
   case blame {
-    Src(_, path, line_no, char_no) -> "s - " <> path <> ":" <> ins(line_no) <> ":" <> ins(char_no)
-    Des(_, name) -> "d - " <> name
-    Em(_, name) -> "e - " <> name
+    Src(_, path, line_no, char_no) -> path <> ":" <> ins(line_no) <> ":" <> ins(char_no)
+    Des(_, name) -> name
+    Em(_, name) -> "e:" <> name
+    NoBlame(_) -> ""
   }
 }
 
@@ -227,7 +251,7 @@ fn glue_columns_3(
       }
     )
 
-  #(#(col1_max, col2_max), table_lines)
+  #(#(col1_size, col2_size), table_lines)
 }
 
 fn pretty_printer_no1_header_lines(
@@ -236,7 +260,7 @@ fn pretty_printer_no1_header_lines(
 ) -> List(String) {
   [
     string.repeat("-", margin_total_width + extra_dashes_for_content),
-    "| Blame" <> string.repeat(" ", margin_total_width - {"| Blame###" |> string.length}) <> "###Content",
+    "| Blame" <> string.repeat(" ", margin_total_width - {"| Blame" |> string.length}) <> "###Content",
     string.repeat("-", margin_total_width + extra_dashes_for_content),
   ]
 }
@@ -259,7 +283,7 @@ fn pretty_printer_no1_body_lines(
         "###" <> spaces(c.indent) <> c.content,
       )},
     )
-    |> glue_columns_3(#(43, 43), #(35, 35), "...", "...]")
+    |> glue_columns_3(#(48, 48), #(30, 30), "...", "...]")
 
   #(#(cols1, cols2), table_lines)
 }
