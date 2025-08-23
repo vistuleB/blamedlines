@@ -108,7 +108,7 @@ pub fn advance(blame: Blame, by: Int) -> Blame {
 pub fn blame_digest(blame: Blame) -> String {
   case blame {
     Src(_, path, line_no, char_no) -> path <> ":" <> ins(line_no) <> ":" <> ins(char_no)
-    Des(_, name, line_no) -> name <> ":L" <> ins(line_no)
+    Des(_, name, line_no) -> name <> "♦" <> ins(line_no)
     Em(_, name) -> "e:" <> name
     NoBlame(_) -> ""
   }
@@ -129,87 +129,6 @@ pub fn comments_digest(
     }
   )
   <> "]"
-}
-
-// ***************************
-// InputLine, OutputLine
-// ***************************
-
-pub type InputLine {
-  InputLine(
-    blame: Blame,
-    indent: Int,
-    content: String,
-  )
-}
-
-pub type OutputLine {
-  OutputLine(
-    blame: Blame,
-    indent: Int,
-    content: String,
-  )
-}
-
-// **************************************************
-// String -> List(InputLine) & path -> String -> List(InputLine)
-// **************************************************
-
-pub fn string_to_input_lines(
-  source: String,
-  path: String,
-  added_indentation: Int,
-) -> List(InputLine) {
-  string.split(source, "\n")
-  |> list.index_map(
-    fn (s, i) {
-      let content = string.trim_start(s)
-      let indent = len(s) - len(content)
-      InputLine(
-        blame: Src(
-          comments: [],
-          path: path,
-          line_no: i + 1,
-          char_no: indent,
-        ),
-        indent: indent + added_indentation,
-        content: content,
-      )
-    }
-  )
-}
-
-pub fn read(
-  path: String,
-  added_indentation: Int,
-) -> Result(List(InputLine), FileError) {
-  simplifile.read(path)
-  |> result.map(string_to_input_lines(_, path, added_indentation))
-}
-
-// **************************************************
-// List(InputLine) -> List(OutputLine)
-// **************************************************
-
-pub fn input_lines_to_output_lines(
-  lines: List(InputLine)
-) -> List(OutputLine) {
-  lines
-  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
-}
-
-// **************************************************
-// OutputLine -> String & List(OutputLine) -> String
-// **************************************************
-
-pub fn output_line_to_string(line: OutputLine) -> String {
-  spaces(line.indent) <> line.content
-}
-
-pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
-  lines
-  |> list.map(output_line_to_string)
-  |> string.join("\n")
 }
 
 // **************************************************
@@ -322,6 +241,87 @@ pub fn blamed_strings_pretty_printer_no1(
     pretty_printer_no1_footer_lines(cols1 + cols2, 35),
   ]
   |> list.flatten
+  |> string.join("\n")
+}
+
+// ***************************
+// InputLine, OutputLine
+// ***************************
+
+pub type InputLine {
+  InputLine(
+    blame: Blame,
+    indent: Int,
+    content: String,
+  )
+}
+
+pub type OutputLine {
+  OutputLine(
+    blame: Blame,
+    indent: Int,
+    content: String,
+  )
+}
+
+// **************************************************
+// String -> List(InputLine) & path -> String -> List(InputLine)
+// **************************************************
+
+pub fn string_to_input_lines(
+  source: String,
+  path: String,
+  added_indentation: Int,
+) -> List(InputLine) {
+  string.split(source, "\n")
+  |> list.index_map(
+    fn (s, i) {
+      let content = string.trim_start(s)
+      let indent = len(s) - len(content)
+      InputLine(
+        blame: Src(
+          comments: [],
+          path: path,
+          line_no: i + 1,
+          char_no: indent,
+        ),
+        indent: indent + added_indentation,
+        content: content,
+      )
+    }
+  )
+}
+
+pub fn read(
+  path: String,
+  added_indentation: Int,
+) -> Result(List(InputLine), FileError) {
+  simplifile.read(path)
+  |> result.map(string_to_input_lines(_, path, added_indentation))
+}
+
+// **************************************************
+// List(InputLine) -> List(OutputLine)
+// **************************************************
+
+pub fn input_lines_to_output_lines(
+  lines: List(InputLine)
+) -> List(OutputLine) {
+  lines
+  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
+}
+
+// **************************************************
+// OutputLine -> String & List(OutputLine) -> String
+// **************************************************
+
+pub fn output_line_to_string(line: OutputLine) -> String {
+  spaces(line.indent) <> line.content
+}
+
+pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
+  lines
+  |> list.map(output_line_to_string)
   |> string.join("\n")
 }
 
