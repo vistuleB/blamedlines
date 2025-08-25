@@ -185,7 +185,7 @@ fn glue_columns_3(
   #(#(col1_size, col2_size), table_lines)
 }
 
-fn pretty_printer_no1_header_lines(
+fn blamed_strings_annotated_table_no1_header_lines(
   margin_total_width: Int,
   extra_dashes_for_content: Int,
 ) -> List(String) {
@@ -196,7 +196,7 @@ fn pretty_printer_no1_header_lines(
   ]
 }
 
-fn pretty_printer_no1_body_lines(
+fn blamed_strings_annotated_table_no1_body_lines(
   contents: List(#(Blame, String)),
   banner: String,
 ) -> #(#(Int, Int), List(String)) {
@@ -219,7 +219,7 @@ fn pretty_printer_no1_body_lines(
   #(#(cols1, cols2), table_lines)
 }
 
-fn pretty_printer_no1_footer_lines(
+fn blamed_strings_annotated_table_no1_footer_lines(
   margin_total_width: Int,
   extra_dashes_for_content: Int,
 ) -> List(String) {
@@ -228,17 +228,17 @@ fn pretty_printer_no1_footer_lines(
   ]
 }
 
-pub fn blamed_strings_pretty_printer_no1(
+pub fn blamed_strings_annotated_table_no1(
   lines: List(#(Blame, String)),
   banner: String,
 ) -> String {
   let #(#(cols1, cols2), body_lines) =
-    pretty_printer_no1_body_lines(lines, banner)
+    blamed_strings_annotated_table_no1_body_lines(lines, banner)
 
   [
-    pretty_printer_no1_header_lines(cols1 + cols2, 35),
+    blamed_strings_annotated_table_no1_header_lines(cols1 + cols2, 35),
     body_lines,
-    pretty_printer_no1_footer_lines(cols1 + cols2, 35),
+    blamed_strings_annotated_table_no1_footer_lines(cols1 + cols2, 35),
   ]
   |> list.flatten
   |> string.join("\n")
@@ -252,7 +252,7 @@ pub type InputLine {
   InputLine(
     blame: Blame,
     indent: Int,
-    content: String,
+    suffix: String,
   )
 }
 
@@ -260,7 +260,7 @@ pub type OutputLine {
   OutputLine(
     blame: Blame,
     indent: Int,
-    content: String,
+    suffix: String,
   )
 }
 
@@ -276,8 +276,8 @@ pub fn string_to_input_lines(
   string.split(source, "\n")
   |> list.index_map(
     fn (s, i) {
-      let content = string.trim_start(s)
-      let indent = len(s) - len(content)
+      let suffix = string.trim_start(s)
+      let indent = len(s) - len(suffix)
       InputLine(
         blame: Src(
           comments: [],
@@ -286,7 +286,7 @@ pub fn string_to_input_lines(
           char_no: indent,
         ),
         indent: indent + added_indentation,
-        content: content,
+        suffix: suffix,
       )
     }
   )
@@ -308,20 +308,16 @@ pub fn input_lines_to_output_lines(
   lines: List(InputLine)
 ) -> List(OutputLine) {
   lines
-  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.content)})
+  |> list.map(fn(l){OutputLine(l.blame, l.indent, l.suffix)})
 }
 
 // **************************************************
 // OutputLine -> String & List(OutputLine) -> String
 // **************************************************
 
-pub fn output_line_to_string(line: OutputLine) -> String {
-  spaces(line.indent) <> line.content
-}
-
 pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
   lines
-  |> list.map(output_line_to_string)
+  |> list.map(fn(c) {spaces(c.indent) <> c.suffix})
   |> string.join("\n")
 }
 
@@ -329,22 +325,22 @@ pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
 // List(OutputLine) & List(InputLine) pretty-printer (no1)
 // **************************************************
 
-pub fn input_lines_pretty_printer_no1(
+pub fn input_lines_annotated_table(
   content: List(InputLine),
   banner: String,
 ) -> String {
   content
-  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.content)})
-  |> blamed_strings_pretty_printer_no1(banner)
+  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.suffix)})
+  |> blamed_strings_annotated_table_no1(banner)
 }
 
-pub fn output_lines_pretty_printer_no1(
+pub fn output_lines_annotated_table(
   content: List(OutputLine),
   banner: String,
 ) -> String {
   content
-  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.content)})
-  |> blamed_strings_pretty_printer_no1(banner)
+  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.suffix)})
+  |> blamed_strings_annotated_table_no1(banner)
 }
 
 // **************************************************
@@ -356,7 +352,7 @@ pub fn echo_output_lines(
   banner: String,
 ) -> List(OutputLine) {
   lines
-  |> output_lines_pretty_printer_no1(banner)
+  |> output_lines_annotated_table(banner)
   |> io.println
   lines
 }
@@ -366,8 +362,7 @@ pub fn echo_input_lines(
   banner: String,
 ) -> List(InputLine) {
   lines
-  |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.content)})
-  |> blamed_strings_pretty_printer_no1(banner)
+  |> input_lines_annotated_table(banner)
   |> io.println
   lines
 }
