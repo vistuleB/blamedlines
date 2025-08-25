@@ -190,9 +190,9 @@ fn blamed_strings_annotated_table_no1_header_lines(
   extra_dashes_for_content: Int,
 ) -> List(String) {
   [
-    string.repeat("-", margin_total_width + extra_dashes_for_content),
-    "| Blame" <> string.repeat(" ", margin_total_width - {"| Blame" |> string.length}) <> "###Content",
-    string.repeat("-", margin_total_width + extra_dashes_for_content),
+    "┌" <> string.repeat("─", margin_total_width + extra_dashes_for_content),
+    "│ Blame" <> string.repeat(" ", margin_total_width - 7) <> "█doc",
+    "├" <> string.repeat("─", margin_total_width + extra_dashes_for_content),
   ]
 }
 
@@ -209,9 +209,9 @@ fn blamed_strings_annotated_table_no1_body_lines(
     list.map(
       contents,
       fn(c) {#(
-        "| " <> banner <> blame_digest(c.0),
+        "│ " <> banner <> blame_digest(c.0),
         comments_digest(c.0),
-        "###" <> c.1,
+        "█" <> c.1,
       )},
     )
     |> glue_columns_3(#(48, 48), #(30, 30), "...", "...]")
@@ -224,14 +224,14 @@ fn blamed_strings_annotated_table_no1_footer_lines(
   extra_dashes_for_content: Int,
 ) -> List(String) {
   [
-    string.repeat("-", margin_total_width + extra_dashes_for_content),
+    "└" <> string.repeat("─", margin_total_width + extra_dashes_for_content),
   ]
 }
 
 pub fn blamed_strings_annotated_table_no1(
   lines: List(#(Blame, String)),
   banner: String,
-) -> String {
+) -> List(String) {
   let #(#(cols1, cols2), body_lines) =
     blamed_strings_annotated_table_no1_body_lines(lines, banner)
 
@@ -241,7 +241,6 @@ pub fn blamed_strings_annotated_table_no1(
     blamed_strings_annotated_table_no1_footer_lines(cols1 + cols2, 35),
   ]
   |> list.flatten
-  |> string.join("\n")
 }
 
 // ***************************
@@ -328,7 +327,7 @@ pub fn output_lines_to_string(lines: List(OutputLine)) -> String {
 pub fn input_lines_annotated_table(
   content: List(InputLine),
   banner: String,
-) -> String {
+) -> List(String) {
   content
   |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.suffix)})
   |> blamed_strings_annotated_table_no1(banner)
@@ -337,7 +336,7 @@ pub fn input_lines_annotated_table(
 pub fn output_lines_annotated_table(
   content: List(OutputLine),
   banner: String,
-) -> String {
+) -> List(String) {
   content
   |> list.map(fn(c) {#(c.blame, spaces(c.indent) <> c.suffix)})
   |> blamed_strings_annotated_table_no1(banner)
@@ -353,6 +352,7 @@ pub fn echo_output_lines(
 ) -> List(OutputLine) {
   lines
   |> output_lines_annotated_table(banner)
+  |> string.join("\n")
   |> io.println
   lines
 }
@@ -363,6 +363,7 @@ pub fn echo_input_lines(
 ) -> List(InputLine) {
   lines
   |> input_lines_annotated_table(banner)
+  |> string.join("\n")
   |> io.println
   lines
 }
